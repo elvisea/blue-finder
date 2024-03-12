@@ -46,7 +46,7 @@ const ScanScreen: React.FC = () => {
     return (
       <ButtonCard
         id={item.id}
-        name={item.localName || item.name || "Nome Desconhecido"}
+        name={item.localName || item.name || "Name Unknown"}
       />
     );
   };
