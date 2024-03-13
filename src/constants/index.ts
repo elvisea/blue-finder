@@ -2,8 +2,9 @@ import { State } from "../types";
 
 const initialState: State = {
   devices: [],
-  isLoading: false,
-  isGranted: false,
+  loading: false,
+  refreshing: false,
+  permissionsGranted: false,
 };
 
 export { initialState };
