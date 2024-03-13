@@ -1,6 +1,12 @@
 import React, { useCallback, useEffect, useReducer } from "react";
 
-import { Text, View, FlatList, ListRenderItemInfo } from "react-native";
+import {
+  Text,
+  View,
+  FlatList,
+  ListRenderItemInfo,
+  RefreshControl,
+} from "react-native";
 
 import { Device } from "react-native-ble-plx";
 
@@ -21,26 +27,37 @@ const ScanScreen: React.FC = () => {
   const [state, dispatch] = useReducer(reducer, initialState);
 
   const updateDevice = useCallback((device: Device) => {
-    dispatch({ type: "ADD-DEVICE", payload: device });
+    dispatch({ type: "ADD_DEVICE", payload: device });
   }, []);
 
-  const handleScanDevices = useCallback(() => {
-    if (!state.isGranted) return;
+  const handleScanDevices = useCallback(
+    (isRefresh = false) => {
+      dispatch({ type: "SET_LOADING", payload: true });
+      bluetooth.scanForDevices(updateDevice);
 
-    dispatch({ type: "SET-LOADING", payload: true });
-    bluetooth.scanForDevices(updateDevice);
+      const endScanning = () => {
+        bluetooth.stopScan();
+        dispatch({ type: "SET_LOADING", payload: false });
+        if (isRefresh) {
+          dispatch({ type: "SET_REFRESHING", payload: false });
+        }
+      };
 
-    const timeoutId = setTimeout(() => {
-      bluetooth.stopScan();
-      dispatch({ type: "SET-LOADING", payload: false });
-    }, 5000);
+      setTimeout(() => {
+        endScanning();
+      }, 5000);
+    },
+    [updateDevice],
+  );
 
-    return () => {
-      clearTimeout(timeoutId);
-      bluetooth.stopScan();
-      dispatch({ type: "SET-LOADING", payload: false });
-    };
-  }, [state.isGranted, updateDevice]);
+  const onRefresh = useCallback(() => {
+    if (state.permissionsGranted) {
+      dispatch({ type: "SET_REFRESHING", payload: true });
+      handleScanDevices(true);
+    } else {
+      handleRequestPermission();
+    }
+  }, [state.permissionsGranted, handleScanDevices]);
 
   const renderItem = ({ item }: ListRenderItemInfo<Device>) => {
     return (
@@ -53,7 +70,7 @@ const ScanScreen: React.FC = () => {
 
   const handleRequestPermission = async () => {
     const response = await requestPermissions();
-    dispatch({ type: "SET-GRANTED", payload: response });
+    dispatch({ type: "SET_PERMISSIONS_GRANTED", payload: response });
   };
 
   useEffect(() => {
@@ -63,7 +80,7 @@ const ScanScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>
-        {state.isLoading
+        {state.loading
           ? "Searching..."
           : `Found Devices: ${state.devices.length}`}
       </Text>
@@ -73,17 +90,20 @@ const ScanScreen: React.FC = () => {
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
         style={{ width: "100%" }}
+        refreshControl={
+          <RefreshControl refreshing={state.refreshing} onRefresh={onRefresh} />
+        }
       />
 
       <Button
-        title={state.isLoading ? "Searching Devices" : "Find Devices"}
-        disabled={state.isLoading}
-        onPress={handleScanDevices}
+        title={state.loading ? "Searching Devices" : "Find Devices"}
+        disabled={state.loading}
+        onPress={() => handleScanDevices(true)}
       />
 
       <Button
         title={"Request Permission"}
-        disabled={state.isLoading}
+        disabled={state.loading}
         onPress={handleRequestPermission}
       />
     </View>
